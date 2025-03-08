@@ -19,12 +19,12 @@ resource "azurerm_subnet" "subnet" {
   address_prefixes     = [var.subnet_prefixes[count.index]]
 
   # For AKS subnet - enable required service endpoints
-  dynamic "service_endpoints" {
-    for_each = var.subnet_names[count.index] == "aks" ? ["Microsoft.Sql", "Microsoft.AzureCosmosDB", "Microsoft.KeyVault", "Microsoft.Storage"] : []
-    content {
-      service = service_endpoints.value
-    }
-  }
+  service_endpoints = var.subnet_names[count.index] == "aks" ? [
+    "Microsoft.Sql",
+    "Microsoft.AzureCosmosDB",
+    "Microsoft.KeyVault",
+    "Microsoft.Storage"
+  ] : []
 
   # AKS requires specific delegation
   dynamic "delegation" {

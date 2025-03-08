@@ -1,41 +1,61 @@
 terraform {
-
-  required_version = ">=0.12"
-
   required_providers {
     azurerm = {
       source  = "hashicorp/azurerm"
-      version = "~>3.75.0" // Updated from 3.31.0
+      version = "~> 3.75.0"
     }
-
     azuread = {
-      version = ">= 2.26.0" // https://github.com/terraform-providers/terraform-provider-azuread/releases
+      source  = "hashicorp/azuread"
+      version = "~> 2.43.0"
     }
-    
     kubernetes = {
       source  = "hashicorp/kubernetes"
       version = "~> 2.23.0"
     }
-    
     helm = {
       source  = "hashicorp/helm"
       version = "~> 2.10.1"
     }
-    
     kubectl = {
       source  = "gavinbunney/kubectl"
       version = "~> 1.14.0"
     }
   }
+  required_version = ">= 1.3.9"
+}
+
+# Add variables for authentication
+variable "subscription_id" {
+  description = "Azure Subscription ID"
+  type        = string
+  default     = null
+}
+
+variable "client_id" {
+  description = "Azure Client ID"
+  type        = string
+  default     = null
+}
+
+variable "client_secret" {
+  description = "Azure Client Secret"
+  type        = string
+  sensitive   = true
+  default     = null
 }
 
 provider "random" {}
 
 provider "azurerm" {
-  features {}
-  skip_provider_registration = true
-  subscription_id            = var.sp-subscription-id
-  client_id                  = var.sp-client-id
-  client_secret              = var.sp-client-secret
-  tenant_id                  = var.sp-tenant-id
+  features {
+    key_vault {
+      purge_soft_delete_on_destroy = true
+      recover_soft_deleted_key_vaults = true
+    }
+  }
+  subscription_id            = var.subscription_id
+  client_id                  = var.client_id
+  client_secret              = var.client_secret
+  tenant_id                  = var.tenant_id
+  skip_provider_registration = false
 }
