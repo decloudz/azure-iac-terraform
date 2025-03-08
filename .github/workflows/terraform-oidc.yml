@@ -112,6 +112,8 @@ jobs:
         ls -la
         echo "Terraform files:"
         find . -name "*.tf" | sort
+        echo "Environment tfvars files:"
+        find ./environments -name "*.tfvars" | sort
 
     # Install the latest version of Terraform CLI 
     - name: Setup Terraform
@@ -183,39 +185,23 @@ jobs:
         cd ${TF_WORKING_DIR}
         terraform validate
 
-    # Create Terraform variables file from GitHub repository variables
-    # Run this for ALL event types (including push to main)
-    - name: Create Terraform Variables File
-      # Skip remaining steps if we're just doing a force unlock
+    # Determines the environment-specific tfvars file to use
+    - name: Set Environment Variables
+      id: set_env_vars
       if: github.event.inputs.force_unlock != 'true'
       run: |
         cd ${TF_WORKING_DIR}
-        echo "Creating variables file for event type: ${{ github.event_name }}"
-        cat > pipeline-generated.tfvars << EOF
-        # Project Information
-        project                    = "${{ vars.PROJECT || 'gcse-prime-edm' }}"
-        environment                = "${{ github.event.inputs.environment || 'dev' }}"
-        location                   = "${{ vars.LOCATION || 'eastus2' }}"
-        owner                      = "${{ vars.OWNER || 'DevOps Team' }}"
-        cost_center                = "${{ vars.COST_CENTER || 'IT-123' }}"
+        ENV="${{ github.event.inputs.environment || 'dev' }}"
+        echo "Using environment: $ENV"
         
-        # Module behavior
-        create_k8s_resources       = ${{ vars.CREATE_K8S_RESOURCES || 'true' }}
-        create_federated_identity  = ${{ vars.CREATE_FEDERATED_IDENTITY || 'true' }}
-        create_dns_role_assignment = ${{ github.event.inputs.environment == 'prod' || 'false' }}
-        
-        # Authentication variables
-        subscription_id            = "${{ secrets.AZURE_SUBSCRIPTION_ID }}"
-        client_id                  = "${{ secrets.AZURE_CLIENT_ID }}"
-        tenant_id                  = "${{ secrets.AZURE_TENANT_ID }}"
-        test_mode                  = ${{ github.event.inputs.test_mode || 'false' }}
-        
-        # Database variables
-        postgresql_admin_password  = "${{ secrets.POSTGRESQL_ADMIN_PASSWORD }}"
-        EOF
-        
-        echo "Variables file created. Showing non-sensitive variables:"
-        grep -v "password\|secret" pipeline-generated.tfvars
+        # Check if environment-specific tfvars file exists
+        if [ -f "environments/${ENV}.tfvars" ]; then
+          echo "Using environment file: environments/${ENV}.tfvars"
+          echo "env_tfvars_file=environments/${ENV}.tfvars" >> $GITHUB_OUTPUT
+        else
+          echo "Environment file environments/${ENV}.tfvars not found! Using dev.tfvars as fallback."
+          echo "env_tfvars_file=environments/dev.tfvars" >> $GITHUB_OUTPUT
+        fi
 
     # Generates an execution plan for Terraform
     # Run this for pull requests AND workflow dispatches AND pushes to main
@@ -233,24 +219,21 @@ jobs:
         
         # Run plan with error handling
         set +e
-        if [ -f "pipeline-generated.tfvars" ]; then
-          # Redirect stdout to file for error handling but also display to console
-          terraform plan \
-            -var-file="pipeline-generated.tfvars" \
-            -var="postgresql_admin_password=${{ secrets.POSTGRESQL_ADMIN_PASSWORD }}" \
-            -lock-timeout=300s \
-            -input=false \
-            -out=tfplan 2>&1 | tee terraform.stdout
-          PLAN_EXIT_CODE=$?
-        else
-          # Redirect stdout to file for error handling but also display to console
-          terraform plan \
-            -var="postgresql_admin_password=${{ secrets.POSTGRESQL_ADMIN_PASSWORD }}" \
-            -lock-timeout=300s \
-            -input=false \
-            -out=tfplan 2>&1 | tee terraform.stdout
-          PLAN_EXIT_CODE=$?
-        fi
+        # Using environment-specific tfvars file
+        echo "Using tfvars file: ${{ steps.set_env_vars.outputs.env_tfvars_file }}"
+        
+        # Redirect stdout to file for error handling but also display to console
+        terraform plan \
+          -var-file="${{ steps.set_env_vars.outputs.env_tfvars_file }}" \
+          -var="postgresql_admin_password=${{ secrets.POSTGRESQL_ADMIN_PASSWORD }}" \
+          -var="client_id=${{ secrets.AZURE_CLIENT_ID }}" \
+          -var="subscription_id=${{ secrets.AZURE_SUBSCRIPTION_ID }}" \
+          -var="tenant_id=${{ secrets.AZURE_TENANT_ID }}" \
+          -var="test_mode=${{ github.event.inputs.test_mode || 'false' }}" \
+          -lock-timeout=300s \
+          -input=false \
+          -out=tfplan 2>&1 | tee terraform.stdout
+        PLAN_EXIT_CODE=$?
         set -e
         
         if [ $PLAN_EXIT_CODE -ne 0 ]; then
@@ -324,10 +307,17 @@ jobs:
         else
           # For push events, create and apply a new plan
           echo "Applying with variables for push event"
+          # Using environment-specific tfvars file
+          echo "Using tfvars file: ${{ steps.set_env_vars.outputs.env_tfvars_file }}"
+          
           # Redirect stdout to file for error handling but also display to console
           terraform apply \
-            -var-file="pipeline-generated.tfvars" \
+            -var-file="${{ steps.set_env_vars.outputs.env_tfvars_file }}" \
             -var="postgresql_admin_password=${{ secrets.POSTGRESQL_ADMIN_PASSWORD }}" \
+            -var="client_id=${{ secrets.AZURE_CLIENT_ID }}" \
+            -var="subscription_id=${{ secrets.AZURE_SUBSCRIPTION_ID }}" \
+            -var="tenant_id=${{ secrets.AZURE_TENANT_ID }}" \
+            -var="test_mode=${{ github.event.inputs.test_mode || 'false' }}" \
             -lock-timeout=300s \
             -auto-approve 2>&1 | tee terraform.stdout
           APPLY_EXIT_CODE=$?
