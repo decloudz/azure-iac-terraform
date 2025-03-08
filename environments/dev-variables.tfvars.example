@@ -1,0 +1,22 @@
+# Example variables file - replace with your own values
+# DO NOT commit the actual values to git
+
+# Azure authentication
+subscription_id         = "your-subscription-id"
+tenant_id               = "your-tenant-id"
+client_id               = "your-client-id"
+# NEVER commit the client_secret to git
+# client_secret           = "your-client-secret"
+
+# Resource naming
+project                 = "my-project"
+environment             = "dev"
+location                = "eastus2"
+app_name                = "myapp"
+
+# AKS
+kubernetes_version      = "1.25.6"
+aks_vm_size             = "Standard_D2s_v3"
+aks_node_count          = 2
+aks_max_pods            = 30
+aks_admin_username      = "azureuser" 
