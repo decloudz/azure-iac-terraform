@@ -21,6 +21,12 @@ crash.*.log
 # But allow example files
 !*.tfvars.example
 
+# Ignore backup and temporary files that might contain sensitive data
+*.old
+*.bak
+*.backup
+*.tmp
+
 # Ignore override files as they are usually used for local development
 override.tf
 override.tf.json
@@ -36,4 +42,7 @@ terraform.rc
 
 # Ignore local development files
 *.log
-.DS_Store 
+.DS_Store
+
+# Ignore development plans
+dev-plan 
