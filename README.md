@@ -39,20 +39,43 @@ The infrastructure includes the following components:
 
 ```
 gcse-prime-edm-terraform/
-├── environments/               # Environment-specific configurations
-│   ├── dev-variables.tfvars    # Development environment variables
+├── environments/              # Environment-specific configurations
+│   ├── dev-variables.tfvars   # Development environment variables
 │   ├── staging-variables.tfvars # Staging environment variables
-│   └── prod-variables.tfvars   # Production environment variables
-├── modules/                    # Reusable Terraform modules
-├── scripts/                    # Helper scripts
-├── .gitignore                  # Git ignore file
-├── main.tf                     # Main Terraform configuration
-├── variables.tf                # Variable declarations
-├── outputs.tf                  # Output definitions
-├── providers.tf                # Provider configurations
-├── versions.tf                 # Terraform and provider version constraints
-└── README.md                   # This file
+│   └── prod-variables.tfvars  # Production environment variables
+├── modules/                   # Reusable Terraform modules
+│   ├── database/              # Database module
+│   ├── dns/                   # DNS module
+│   ├── kubernetes/            # Kubernetes module
+│   ├── monitoring/            # Monitoring module
+│   ├── networking/            # Networking module
+│   └── security/              # Security module
+├── scripts/                   # Helper scripts
+├── .gitignore                 # Git ignore file
+├── main.tf                    # Main Terraform configuration
+├── variables.tf               # Variable declarations
+├── locals.tf                  # Local values
+├── backend.tf                 # Backend configuration
+├── providers.tf               # Provider configurations
+└── README.md                  # This file
 ```
+
+## Module Structure
+
+The infrastructure is organized into the following modules:
+
+1. **networking** - Manages VNets, subnets, NSGs, and other network resources
+2. **kubernetes** - Manages AKS cluster and related resources
+3. **database** - Manages PostgreSQL database and related resources
+4. **security** - Manages Key Vault, certificates, and security-related resources
+5. **monitoring** - Manages Log Analytics workspace and monitoring components
+6. **dns** - Manages DNS zones and records
+
+This modular approach provides:
+- Improved maintainability and readability
+- Better separation of concerns
+- Ability to reuse modules across environments
+- Easier testing and validation
 
 ## Local Development
 
