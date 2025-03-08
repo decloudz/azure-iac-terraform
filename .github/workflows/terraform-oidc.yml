@@ -44,6 +44,8 @@ env:
   ARM_SUBSCRIPTION_ID: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
   ARM_TENANT_ID: ${{ secrets.AZURE_TENANT_ID }}
   ARM_USE_OIDC: true
+  # Increase Terraform log level for debugging
+  TF_LOG: DEBUG
 
 jobs:
   # This job is just to show diagnostic information about what OIDC token is being used
@@ -59,6 +61,15 @@ jobs:
           echo "GitHub Workflow: $GITHUB_WORKFLOW"
           echo "Expected OIDC Subject Format (Branch): repo:${GITHUB_REPOSITORY}:ref:${GITHUB_REF#refs/heads/}"
           echo "Expected OIDC Subject Format (Environment): repo:${GITHUB_REPOSITORY}:environment:${{ github.event.inputs.environment || 'dev' }}"
+      
+      - name: Check Required Secrets
+        run: |
+          echo "Checking if required secrets are set..."
+          [[ -n "${{ secrets.AZURE_CLIENT_ID }}" ]] || { echo "::error::AZURE_CLIENT_ID secret is not set"; exit 1; }
+          [[ -n "${{ secrets.AZURE_TENANT_ID }}" ]] || { echo "::error::AZURE_TENANT_ID secret is not set"; exit 1; }
+          [[ -n "${{ secrets.AZURE_SUBSCRIPTION_ID }}" ]] || { echo "::error::AZURE_SUBSCRIPTION_ID secret is not set"; exit 1; }
+          [[ -n "${{ secrets.POSTGRESQL_ADMIN_PASSWORD }}" ]] || { echo "::error::POSTGRESQL_ADMIN_PASSWORD secret is not set"; exit 1; }
+          echo "All required secrets are set."
           
   terraform:
     name: 'Terraform'
@@ -82,6 +93,14 @@ jobs:
     # Checkout the repository to the GitHub Actions runner
     - name: Checkout
       uses: actions/checkout@v4
+      
+    # List files for debugging
+    - name: List Directory Content
+      run: |
+        echo "Current directory: $(pwd)"
+        ls -la
+        echo "Terraform files:"
+        find . -name "*.tf" | sort
 
     # Install the latest version of Terraform CLI 
     - name: Setup Terraform
@@ -100,12 +119,28 @@ jobs:
         environment: azurecloud
         allow-no-subscriptions: false
         audience: api://AzureADTokenExchange
+        
+    # Verify Azure login worked by listing resource groups
+    - name: Verify Azure Login
+      run: |
+        echo "Verifying Azure login by listing resource groups..."
+        az group list --query "[].name" -o tsv
+        echo "Checking if state resource group exists..."
+        az group show --name ${TF_STATE_RESOURCE_GROUP} --query "name" -o tsv || echo "State resource group not found!"
+        echo "Checking if state storage account exists..."
+        az storage account show --name ${TF_STATE_STORAGE_ACCOUNT} --resource-group ${TF_STATE_RESOURCE_GROUP} --query "name" -o tsv || echo "State storage account not found!"
 
     # Initialize a new or existing Terraform working directory by creating initial files, loading any remote state, downloading modules, etc.
     - name: Terraform Init
       id: init
       run: |
         cd ${TF_WORKING_DIR}
+        echo "Running terraform init with backend configs:"
+        echo "  Resource Group: ${TF_STATE_RESOURCE_GROUP}"
+        echo "  Storage Account: ${TF_STATE_STORAGE_ACCOUNT}"
+        echo "  Container: ${TF_STATE_CONTAINER}"
+        echo "  Key: ${{ github.event.inputs.environment || 'dev' }}.terraform.tfstate"
+        
         terraform init \
           -backend-config="resource_group_name=${TF_STATE_RESOURCE_GROUP}" \
           -backend-config="storage_account_name=${TF_STATE_STORAGE_ACCOUNT}" \
@@ -120,10 +155,11 @@ jobs:
         terraform validate
 
     # Create Terraform variables file from GitHub repository variables
+    # Run this for ALL event types (including push to main)
     - name: Create Terraform Variables File
-      if: github.event_name == 'pull_request' || github.event_name == 'workflow_dispatch'
       run: |
         cd ${TF_WORKING_DIR}
+        echo "Creating variables file for event type: ${{ github.event_name }}"
         cat > pipeline-generated.tfvars << EOF
         # Project Information
         project                    = "${{ vars.PROJECT || 'gcse-prime-edm' }}"
@@ -146,24 +182,45 @@ jobs:
         # Database variables
         postgresql_admin_password  = "${{ secrets.POSTGRESQL_ADMIN_PASSWORD }}"
         EOF
+        
+        echo "Variables file created. Showing non-sensitive variables:"
+        grep -v "password\|secret" pipeline-generated.tfvars
 
     # Generates an execution plan for Terraform
+    # Run this for pull requests AND workflow dispatches AND pushes to main
     - name: Terraform Plan
       id: plan
-      if: github.event_name == 'pull_request' || github.event_name == 'workflow_dispatch'
       run: |
         cd ${TF_WORKING_DIR}
+        echo "Running plan for event type: ${{ github.event_name }}"
+        
+        # Show all required variables 
+        echo "Checking for required variables in terraform configuration..."
+        terraform providers
+        
+        # Run plan with error handling
+        set +e
         if [ -f "pipeline-generated.tfvars" ]; then
           terraform plan \
             -var-file="pipeline-generated.tfvars" \
             -var="postgresql_admin_password=${{ secrets.POSTGRESQL_ADMIN_PASSWORD }}" \
             -input=false \
             -out=tfplan
+          PLAN_EXIT_CODE=$?
         else
           terraform plan \
             -var="postgresql_admin_password=${{ secrets.POSTGRESQL_ADMIN_PASSWORD }}" \
             -input=false \
             -out=tfplan
+          PLAN_EXIT_CODE=$?
+        fi
+        set -e
+        
+        if [ $PLAN_EXIT_CODE -ne 0 ]; then
+          echo "::error::Terraform plan failed with exit code $PLAN_EXIT_CODE"
+          exit $PLAN_EXIT_CODE
+        else
+          echo "Terraform plan succeeded. Plan file created at tfplan"
         fi
 
     # Upload the Terraform plan so it can be applied later
@@ -209,19 +266,29 @@ jobs:
       if: (github.ref == 'refs/heads/main' && github.event_name == 'push') || github.event_name == 'workflow_dispatch'
       run: |
         cd ${TF_WORKING_DIR}
+        echo "Running apply for event type: ${{ github.event_name }}"
+        
+        # Run apply with error handling
+        set +e
         if [ "${{ github.event_name }}" == "workflow_dispatch" ]; then
           # Download the plan for workflow_dispatch events
+          echo "Applying the plan from workflow_dispatch event"
           terraform apply -auto-approve tfplan
+          APPLY_EXIT_CODE=$?
         else
           # For push events, create and apply a new plan
-          if [ -f "pipeline-generated.tfvars" ]; then
-            terraform apply \
-              -var-file="pipeline-generated.tfvars" \
-              -var="postgresql_admin_password=${{ secrets.POSTGRESQL_ADMIN_PASSWORD }}" \
-              -auto-approve
-          else
-            terraform apply \
-              -var="postgresql_admin_password=${{ secrets.POSTGRESQL_ADMIN_PASSWORD }}" \
-              -auto-approve
-          fi
+          echo "Applying with variables for push event"
+          terraform apply \
+            -var-file="pipeline-generated.tfvars" \
+            -var="postgresql_admin_password=${{ secrets.POSTGRESQL_ADMIN_PASSWORD }}" \
+            -auto-approve
+          APPLY_EXIT_CODE=$?
+        fi
+        set -e
+        
+        if [ $APPLY_EXIT_CODE -ne 0 ]; then
+          echo "::error::Terraform apply failed with exit code $APPLY_EXIT_CODE"
+          exit $APPLY_EXIT_CODE
+        else
+          echo "Terraform apply succeeded!"
         fi 
