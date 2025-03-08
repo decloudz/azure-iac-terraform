@@ -53,8 +53,8 @@ env:
   ARM_SUBSCRIPTION_ID: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
   ARM_TENANT_ID: ${{ secrets.AZURE_TENANT_ID }}
   ARM_USE_OIDC: true
-  # Increase Terraform log level for debugging
-  TF_LOG: DEBUG
+  # Reduced log level - only show errors and warnings instead of DEBUG
+  TF_LOG: ERROR
   # Increase lock timeout to 5 minutes (default is 1)
   TF_LOCK_TIMEOUT: 300s
 
@@ -160,11 +160,13 @@ jobs:
         echo "  Container: ${TF_STATE_CONTAINER}"
         echo "  Key: ${{ github.event.inputs.environment || 'dev' }}.terraform.tfstate"
         
+        # Redirect stdout to file for error handling but also display to console
         terraform init \
           -backend-config="resource_group_name=${TF_STATE_RESOURCE_GROUP}" \
           -backend-config="storage_account_name=${TF_STATE_STORAGE_ACCOUNT}" \
           -backend-config="container_name=${TF_STATE_CONTAINER}" \
-          -backend-config="key=${{ github.event.inputs.environment || 'dev' }}.terraform.tfstate"
+          -backend-config="key=${{ github.event.inputs.environment || 'dev' }}.terraform.tfstate" \
+          2>&1 | tee terraform.log
 
     # Validate Terraform configuration
     - name: Terraform Validate
@@ -220,19 +222,21 @@ jobs:
         # Run plan with error handling
         set +e
         if [ -f "pipeline-generated.tfvars" ]; then
+          # Redirect stdout to file for error handling but also display to console
           terraform plan \
             -var-file="pipeline-generated.tfvars" \
             -var="postgresql_admin_password=${{ secrets.POSTGRESQL_ADMIN_PASSWORD }}" \
             -lock-timeout=300s \
             -input=false \
-            -out=tfplan
+            -out=tfplan 2>&1 | tee terraform.stdout
           PLAN_EXIT_CODE=$?
         else
+          # Redirect stdout to file for error handling but also display to console
           terraform plan \
             -var="postgresql_admin_password=${{ secrets.POSTGRESQL_ADMIN_PASSWORD }}" \
             -lock-timeout=300s \
             -input=false \
-            -out=tfplan
+            -out=tfplan 2>&1 | tee terraform.stdout
           PLAN_EXIT_CODE=$?
         fi
         set -e
@@ -302,16 +306,18 @@ jobs:
         if [ "${{ github.event_name }}" == "workflow_dispatch" ]; then
           # Download the plan for workflow_dispatch events
           echo "Applying the plan from workflow_dispatch event"
-          terraform apply -lock-timeout=300s -auto-approve tfplan
+          # Redirect stdout to file for error handling but also display to console
+          terraform apply -lock-timeout=300s -auto-approve tfplan 2>&1 | tee terraform.stdout
           APPLY_EXIT_CODE=$?
         else
           # For push events, create and apply a new plan
           echo "Applying with variables for push event"
+          # Redirect stdout to file for error handling but also display to console
           terraform apply \
             -var-file="pipeline-generated.tfvars" \
             -var="postgresql_admin_password=${{ secrets.POSTGRESQL_ADMIN_PASSWORD }}" \
             -lock-timeout=300s \
-            -auto-approve
+            -auto-approve 2>&1 | tee terraform.stdout
           APPLY_EXIT_CODE=$?
         fi
         set -e
