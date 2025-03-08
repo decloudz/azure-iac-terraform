@@ -141,14 +141,6 @@ jobs:
         echo "Checking if state storage account exists..."
         az storage account show --name ${TF_STATE_STORAGE_ACCOUNT} --resource-group ${TF_STATE_RESOURCE_GROUP} --query "name" -o tsv || echo "State storage account not found!"
 
-    # Force unlock state if requested
-    - name: Force Unlock Terraform State
-      if: github.event.inputs.force_unlock == 'true' && github.event.inputs.lock_id != ''
-      run: |
-        cd ${TF_WORKING_DIR}
-        echo "Attempting to force unlock state with lock ID: ${{ github.event.inputs.lock_id }}"
-        terraform force-unlock -force ${{ github.event.inputs.lock_id }}
-
     # Initialize a new or existing Terraform working directory by creating initial files, loading any remote state, downloading modules, etc.
     - name: Terraform Init
       id: init
@@ -167,10 +159,26 @@ jobs:
           -backend-config="container_name=${TF_STATE_CONTAINER}" \
           -backend-config="key=${{ github.event.inputs.environment || 'dev' }}.terraform.tfstate" \
           2>&1 | tee terraform.log
+          
+    # Force unlock state if requested - MUST come after terraform init
+    - name: Force Unlock Terraform State
+      if: github.event.inputs.force_unlock == 'true' && github.event.inputs.lock_id != ''
+      run: |
+        cd ${TF_WORKING_DIR}
+        echo "Attempting to force unlock state with lock ID: ${{ github.event.inputs.lock_id }}"
+        terraform force-unlock -force ${{ github.event.inputs.lock_id }}
+        
+        # Exit early if this is just an unlock operation
+        if [ "${{ github.event.inputs.force_unlock }}" == "true" ]; then
+          echo "Force unlock operation completed. Exiting workflow early."
+          exit 0
+        fi
 
     # Validate Terraform configuration
     - name: Terraform Validate
       id: validate
+      # Skip remaining steps if we're just doing a force unlock
+      if: github.event.inputs.force_unlock != 'true'
       run: |
         cd ${TF_WORKING_DIR}
         terraform validate
@@ -178,6 +186,8 @@ jobs:
     # Create Terraform variables file from GitHub repository variables
     # Run this for ALL event types (including push to main)
     - name: Create Terraform Variables File
+      # Skip remaining steps if we're just doing a force unlock
+      if: github.event.inputs.force_unlock != 'true'
       run: |
         cd ${TF_WORKING_DIR}
         echo "Creating variables file for event type: ${{ github.event_name }}"
@@ -211,6 +221,8 @@ jobs:
     # Run this for pull requests AND workflow dispatches AND pushes to main
     - name: Terraform Plan
       id: plan
+      # Skip remaining steps if we're just doing a force unlock
+      if: github.event.inputs.force_unlock != 'true'
       run: |
         cd ${TF_WORKING_DIR}
         echo "Running plan for event type: ${{ github.event_name }}"
@@ -258,7 +270,7 @@ jobs:
 
     # Upload the Terraform plan so it can be applied later
     - name: Upload Terraform Plan
-      if: github.event_name == 'pull_request' || github.event_name == 'workflow_dispatch'
+      if: (github.event_name == 'pull_request' || github.event_name == 'workflow_dispatch') && github.event.inputs.force_unlock != 'true'
       uses: actions/upload-artifact@v4
       with:
         name: terraform-plan
@@ -266,7 +278,7 @@ jobs:
         
     # Add comments to PRs with plan output
     - name: Add Plan Comment to PR
-      if: github.event_name == 'pull_request'
+      if: github.event_name == 'pull_request' && github.event.inputs.force_unlock != 'true'
       uses: actions/github-script@v6
       env:
         INIT: "${{ steps.init.outcome }}"
@@ -296,7 +308,7 @@ jobs:
 
     # On push to "main" or workflow_dispatch, apply Terraform changes
     - name: Terraform Apply
-      if: (github.ref == 'refs/heads/main' && github.event_name == 'push') || github.event_name == 'workflow_dispatch'
+      if: ((github.ref == 'refs/heads/main' && github.event_name == 'push') || github.event_name == 'workflow_dispatch') && github.event.inputs.force_unlock != 'true'
       run: |
         cd ${TF_WORKING_DIR}
         echo "Running apply for event type: ${{ github.event_name }}"
