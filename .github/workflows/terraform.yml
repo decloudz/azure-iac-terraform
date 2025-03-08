@@ -30,7 +30,7 @@ on:
         type: boolean
 
 env:
-  TF_WORKING_DIR: 'clean-azure-iac-terraform'
+  TF_WORKING_DIR: 'azure-iac-terraform'
   TF_STATE_RESOURCE_GROUP: 'rg-terraform-state'
   TF_STATE_STORAGE_ACCOUNT: 'sttfstategcse'
   TF_STATE_CONTAINER: 'tfstate'
@@ -50,15 +50,17 @@ jobs:
     
     steps:
     - name: Checkout Repository
-      uses: actions/checkout@v3
+      uses: actions/checkout@v4
 
     - name: Setup Terraform
       uses: hashicorp/setup-terraform@v2
       with:
         terraform_version: ${{ env.TERRAFORM_VERSION }}
 
-    - name: Setup Azure CLI
-      uses: azure/setup-azure-cli@v1
+    - name: Install Azure CLI
+      run: |
+        curl -sL https://aka.ms/InstallAzureCLIDeb | sudo bash
+        az --version
       
     - name: Azure Login
       uses: azure/login@v1
@@ -132,7 +134,7 @@ jobs:
 
     - name: Upload Terraform Plan
       if: github.event_name == 'pull_request' || github.event_name == 'workflow_dispatch'
-      uses: actions/upload-artifact@v3
+      uses: actions/upload-artifact@v4
       with:
         name: terraform-plan
         path: ${{ env.TF_WORKING_DIR }}/tfplan
