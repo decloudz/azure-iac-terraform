@@ -46,7 +46,7 @@ variables:
   - name: kubeloginVersion
     value: '0.0.24'
   - name: workingDirectory
-    value: '$(System.DefaultWorkingDirectory)/clean-azure-iac-terraform'
+    value: '$(System.DefaultWorkingDirectory)/azure-iac-terraform'
   - name: tfStateResourceGroup
     value: 'rg-terraform-state'
   - name: tfStateStorageAccount
