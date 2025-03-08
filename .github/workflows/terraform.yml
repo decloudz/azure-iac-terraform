@@ -5,13 +5,11 @@ on:
     branches:
       - main
     paths:
-      - 'azure-iac-terraform/**'
+      - '**'
       - '.github/workflows/terraform.yml'
   pull_request:
     branches:
       - main
-    paths:
-      - 'azure-iac-terraform/**'
   workflow_dispatch:
     inputs:
       environment:
@@ -30,7 +28,7 @@ on:
         type: boolean
 
 env:
-  TF_WORKING_DIR: 'azure-iac-terraform'
+  TF_WORKING_DIR: '.'
   TF_STATE_RESOURCE_GROUP: 'rg-terraform-state'
   TF_STATE_STORAGE_ACCOUNT: 'sttfstategcse'
   TF_STATE_CONTAINER: 'tfstate'
@@ -41,12 +39,6 @@ jobs:
     name: 'Terraform'
     runs-on: ubuntu-latest
     environment: ${{ github.event.inputs.environment || 'dev' }}
-    
-    # Use the Bash shell regardless whether the GitHub Actions runner is ubuntu-latest, macos-latest, or windows-latest
-    defaults:
-      run:
-        shell: bash
-        working-directory: ${{ env.TF_WORKING_DIR }}
     
     steps:
     - name: Checkout Repository
@@ -59,7 +51,12 @@ jobs:
 
     - name: Install Azure CLI
       run: |
-        curl -sL https://aka.ms/InstallAzureCLIDeb | sudo bash
+        sudo apt-get update
+        sudo apt-get install -y ca-certificates curl apt-transport-https lsb-release gnupg
+        curl -sL https://packages.microsoft.com/keys/microsoft.asc | gpg --dearmor | sudo tee /etc/apt/trusted.gpg.d/microsoft.gpg > /dev/null
+        echo "deb [arch=amd64] https://packages.microsoft.com/repos/azure-cli/ $(lsb_release -cs) main" | sudo tee /etc/apt/sources.list.d/azure-cli.list
+        sudo apt-get update
+        sudo apt-get install -y azure-cli
         az --version
       
     - name: Azure Login
@@ -72,6 +69,7 @@ jobs:
     - name: Terraform Init
       id: init
       run: |
+        cd ${TF_WORKING_DIR}
         terraform init \
           -backend-config="resource_group_name=${{ env.TF_STATE_RESOURCE_GROUP }}" \
           -backend-config="storage_account_name=${{ env.TF_STATE_STORAGE_ACCOUNT }}" \
@@ -80,10 +78,13 @@ jobs:
 
     - name: Terraform Validate
       id: validate
-      run: terraform validate
+      run: |
+        cd ${TF_WORKING_DIR}
+        terraform validate
 
     - name: Create Terraform Variables File
       run: |
+        cd ${TF_WORKING_DIR}
         cat > pipeline-generated.tfvars << EOF
         # Project Information
         project                    = "${{ vars.PROJECT }}"
@@ -125,6 +126,7 @@ jobs:
       id: plan
       if: github.event_name == 'pull_request' || github.event_name == 'workflow_dispatch'
       run: |
+        cd ${TF_WORKING_DIR}
         terraform plan \
           -var-file="pipeline-generated.tfvars" \
           -var="test_mode=${{ github.event.inputs.test_mode || 'true' }}" \
@@ -142,6 +144,7 @@ jobs:
     - name: Terraform Apply
       if: github.event_name == 'workflow_dispatch'
       run: |
+        cd ${TF_WORKING_DIR}
         terraform apply -auto-approve tfplan
         
     # Add comments to PRs with plan output
