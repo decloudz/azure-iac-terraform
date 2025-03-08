@@ -52,7 +52,7 @@ resource "azurerm_federated_identity_credential" "external_dns_federated_identit
 
 # Create common DNS records
 resource "azurerm_dns_a_record" "wildcard" {
-  count               = var.create_wildcard_record ? 1 : 0
+  count               = var.create_wildcard_record && var.app_gateway_public_ip_id != "" ? 1 : 0
   name                = "*"
   zone_name           = azurerm_dns_zone.dns_zone.name
   resource_group_name = var.resource_group_name

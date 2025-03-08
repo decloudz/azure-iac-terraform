@@ -1,22 +1,49 @@
-# Example variables file - replace with your own values
-# DO NOT commit the actual values to git
+# Example dev-variables.tfvars file
+# Copy this file to dev-variables.tfvars and fill in your own values
 
-# Azure authentication
-subscription_id         = "your-subscription-id"
-tenant_id               = "your-tenant-id"
-client_id               = "your-client-id"
-# NEVER commit the client_secret to git
-# client_secret           = "your-client-secret"
+# Azure Authentication
+subscription_id = "your-subscription-id"
+client_id       = "your-service-principal-client-id"
+client_secret   = "your-service-principal-client-secret"
+tenant_id       = "your-tenant-id"
 
-# Resource naming
-project                 = "my-project"
-environment             = "dev"
-location                = "eastus2"
-app_name                = "myapp"
+# Project information
+project     = "gcse-prime-edm"
+environment = "dev"
+location    = "eastus2"
+owner       = "DevOps Team"
+cost_center = "IT-12345"
 
-# AKS
-kubernetes_version      = "1.25.6"
-aks_vm_size             = "Standard_D2s_v3"
-aks_node_count          = 2
-aks_max_pods            = 30
-aks_admin_username      = "azureuser" 
+# Networking
+vnet_address_space  = ["10.0.0.0/16"]
+subnet_prefixes     = ["10.0.1.0/24", "10.0.2.0/24", "10.0.3.0/24", "10.0.4.0/24"]
+subnet_names        = ["aks", "db", "appgw", "bastion"]
+
+# AKS configuration
+kubernetes_version  = "1.25.6"
+aks_vm_size         = "Standard_D2s_v3"
+aks_node_count      = 2
+aks_max_pods        = 30
+aks_admin_username  = "azureuser"
+
+# Security
+key_vault_sku             = "standard"
+cert_manager_namespace    = "cert-manager"
+cert_manager_identity_name = "cert-manager-identity"
+
+# DNS
+dns_zone_name             = "example.com"
+external_dns_namespace    = "external-dns"
+external_dns_identity_name = "external-dns-identity"
+
+# Monitoring
+log_analytics_retention_days = 30
+
+# PostgreSQL database
+postgresql_sku            = "GP_Gen5_2"
+postgresql_storage        = 102400  # 100 GB
+postgresql_version        = "11"
+postgresql_admin_password = "YourStrongPasswordHere"  # Replace with a secure password
+
+# You should NEVER commit the actual dev-variables.tfvars file with real values to git
+# Add dev-variables.tfvars to your .gitignore file 

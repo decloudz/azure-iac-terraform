@@ -40,6 +40,8 @@ module "kubernetes" {
   subnet_id                  = module.networking.aks_subnet_id
   log_analytics_workspace_id = module.monitoring.log_analytics_workspace_id
   ssh_public_key             = file(var.ssh_public_key_path)
+  acr_id                     = var.acr_id
+  admin_group_object_ids     = var.admin_group_object_ids
 }
 
 # Database module
@@ -73,6 +75,10 @@ module "security" {
   key_vault_sku              = var.key_vault_sku
   cert_manager_namespace     = var.cert_manager_namespace
   cert_manager_identity_name = var.cert_manager_identity_name
+  dns_zone_id                = module.dns.dns_zone_id
+  create_k8s_resources       = var.create_k8s_resources
+  create_federated_identity  = var.create_federated_identity
+  oidc_issuer_url            = var.oidc_issuer_url
 }
 
 # Monitoring module
@@ -91,13 +97,18 @@ module "monitoring" {
 module "dns" {
   source = "./modules/dns"
 
-  resource_group_name       = azurerm_resource_group.rg.name
-  location                  = var.location
-  environment               = var.environment
-  project                   = var.project
-  common_tags               = local.common_tags
-  dns_zone_name             = var.dns_zone_name
-  external_dns_namespace    = var.external_dns_namespace
+  resource_group_name        = azurerm_resource_group.rg.name
+  location                   = var.location
+  environment                = var.environment
+  project                    = var.project
+  common_tags                = local.common_tags
+  dns_zone_name              = var.dns_zone_name
+  external_dns_namespace     = var.external_dns_namespace
   external_dns_identity_name = var.external_dns_identity_name
-  aks_principal_id          = module.kubernetes.aks_principal_id
+  create_k8s_resources       = var.create_k8s_resources
+  create_federated_identity  = var.create_federated_identity
+  oidc_issuer_url            = var.oidc_issuer_url
+  create_wildcard_record     = var.create_wildcard_record
+  app_gateway_public_ip_id   = var.app_gateway_public_ip_id
+  aks_principal_id           = module.kubernetes.aks_principal_id
 } 

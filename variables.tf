@@ -160,4 +160,49 @@ variable "postgresql_admin_password" {
   description = "Password for the PostgreSQL database administrator"
   type        = string
   sensitive   = true
+}
+
+# ACR
+variable "acr_id" {
+  description = "ID of the Azure Container Registry"
+  type        = string
+  default     = ""
+}
+
+# Application Gateway
+variable "app_gateway_public_ip_id" {
+  description = "ID of the Application Gateway public IP"
+  type        = string
+  default     = ""
+}
+
+# Module integration
+variable "create_k8s_resources" {
+  description = "Whether to create Kubernetes resources"
+  type        = bool
+  default     = true
+}
+
+variable "create_wildcard_record" {
+  description = "Whether to create a wildcard DNS record"
+  type        = bool
+  default     = false
+}
+
+variable "create_federated_identity" {
+  description = "Whether to create federated identity credential"
+  type        = bool
+  default     = true
+}
+
+variable "oidc_issuer_url" {
+  description = "OIDC issuer URL for the AKS cluster"
+  type        = string
+  default     = ""
+}
+
+variable "admin_group_object_ids" {
+  description = "Object IDs of Azure AD groups with admin access to the cluster"
+  type        = list(string)
+  default     = []
 } 
