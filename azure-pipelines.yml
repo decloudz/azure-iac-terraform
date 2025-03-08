@@ -57,7 +57,7 @@ variables:
     value: '${{ parameters.environment }}.terraform.tfstate'
   # DNS role assignment control
   - name: createDnsRoleAssignment
-    value: ${{ parameters.environment == 'prod' }}
+    value: ${{ eq(parameters.environment, 'prod') }}
 
 stages:
 - stage: Validate
