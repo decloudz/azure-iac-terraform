@@ -45,5 +45,11 @@ postgresql_storage        = 102400  # 100 GB
 postgresql_version        = "11"
 postgresql_admin_password = "YourStrongPasswordHere"  # Replace with a secure password
 
+# Module behavior
+create_k8s_resources        = true
+create_federated_identity   = true
+create_dns_role_assignment  = false
+create_wildcard_record      = false
+
 # You should NEVER commit the actual dev-variables.tfvars file with real values to git
 # Add dev-variables.tfvars to your .gitignore file 

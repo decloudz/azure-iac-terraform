@@ -87,6 +87,7 @@ module "security" {
   dns_zone_id                = local.should_create_resources ? module.dns[0].dns_zone_id : ""
   create_k8s_resources       = var.create_k8s_resources
   create_federated_identity  = var.create_federated_identity
+  create_dns_role_assignment = var.create_dns_role_assignment
   oidc_issuer_url            = var.oidc_issuer_url
 }
 

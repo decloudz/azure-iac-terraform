@@ -205,4 +205,10 @@ variable "admin_group_object_ids" {
   description = "Object IDs of Azure AD groups with admin access to the cluster"
   type        = list(string)
   default     = []
+}
+
+variable "create_dns_role_assignment" {
+  description = "Whether to create the DNS Zone Contributor role assignment"
+  type        = bool
+  default     = false
 } 

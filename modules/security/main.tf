@@ -6,7 +6,7 @@ resource "azurerm_key_vault" "kv" {
   name                = "kv-${var.project}-${var.environment}"
   location            = var.location
   resource_group_name = var.resource_group_name
-  tenant_id           = var.tenant_id
+  tenant_id           = var.tenant_id != "" ? var.tenant_id : "00000000-0000-0000-0000-000000000000" # Use a placeholder when empty
   sku_name            = var.key_vault_sku
   tags                = var.common_tags
 
@@ -70,7 +70,7 @@ resource "azurerm_user_assigned_identity" "cert_manager_identity" {
 
 # Grant the Cert Manager identity DNS Zone Contributor access
 resource "azurerm_role_assignment" "cert_manager_dns_contributor" {
-  count               = var.dns_zone_id != "" ? 1 : 0
+  count               = var.create_dns_role_assignment ? 1 : 0
   scope                = var.dns_zone_id
   role_definition_name = "DNS Zone Contributor"
   principal_id         = azurerm_user_assigned_identity.cert_manager_identity.principal_id

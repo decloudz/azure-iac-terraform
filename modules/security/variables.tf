@@ -86,4 +86,10 @@ variable "oidc_issuer_url" {
   description = "OIDC issuer URL"
   type        = string
   default     = ""
+}
+
+variable "create_dns_role_assignment" {
+  description = "Whether to create the DNS Zone Contributor role assignment"
+  type        = bool
+  default     = false
 } 
