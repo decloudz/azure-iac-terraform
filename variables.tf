@@ -1002,3 +1002,27 @@ variable "kubernetes_cluster_name" {
   type        = string
   default     = "aks-cluster"
 }
+
+variable "owner" {
+  description = "Owner of the infrastructure"
+  type        = string
+  default     = "DevOps Team"
+}
+
+variable "cost_center" {
+  description = "Cost center for billing"
+  type        = string
+  default     = "IT-12345"
+}
+
+variable "log_analytics_retention_days" {
+  description = "Retention in days for Log Analytics data"
+  type        = number
+  default     = 30
+}
+
+variable "ssh_public_key_path" {
+  description = "Path to the SSH public key file"
+  type        = string
+  default     = "ssh_pub_keys/azureuser.pub"
+}
