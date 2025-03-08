@@ -82,7 +82,7 @@ create_variable_group "$PROD_GROUP" "Production environment variables"
 echo ""
 
 # Process dev variables
-if [ -f "environments/dev-variables.tfvars" ]; then
+if [ -f "environments/dev.tfvars" ]; then
   echo "# Commands to add variables from dev environment"
   
   while IFS= read -r line; do
