@@ -1,6 +1,12 @@
 # Main Terraform configuration file
 # This file orchestrates all modules for the GCSE Prime EDM infrastructure
 
+# Add at the top of the file
+locals {
+  # Skip actual creation of Azure resources when in test mode
+  should_create_resources = !var.test_mode
+}
+
 # Create resource group
 resource "azurerm_resource_group" "rg" {
   name     = local.resource_group_name
@@ -25,6 +31,7 @@ module "networking" {
 # Kubernetes module
 module "kubernetes" {
   source = "./modules/kubernetes"
+  count  = local.should_create_resources ? 1 : 0
 
   resource_group_name        = azurerm_resource_group.rg.name
   location                   = var.location
@@ -47,6 +54,7 @@ module "kubernetes" {
 # Database module
 module "database" {
   source = "./modules/database"
+  count  = local.should_create_resources ? 1 : 0
 
   resource_group_name = azurerm_resource_group.rg.name
   location            = var.location
@@ -64,6 +72,7 @@ module "database" {
 # Security module
 module "security" {
   source = "./modules/security"
+  count  = local.should_create_resources ? 1 : 0
 
   resource_group_name        = azurerm_resource_group.rg.name
   location                   = var.location
@@ -71,11 +80,11 @@ module "security" {
   project                    = var.project
   common_tags                = local.common_tags
   tenant_id                  = var.tenant_id
-  aks_principal_id           = module.kubernetes.aks_principal_id
+  aks_principal_id           = local.should_create_resources ? module.kubernetes[0].aks_principal_id : ""
   key_vault_sku              = var.key_vault_sku
   cert_manager_namespace     = var.cert_manager_namespace
   cert_manager_identity_name = var.cert_manager_identity_name
-  dns_zone_id                = module.dns.dns_zone_id
+  dns_zone_id                = local.should_create_resources ? module.dns[0].dns_zone_id : ""
   create_k8s_resources       = var.create_k8s_resources
   create_federated_identity  = var.create_federated_identity
   oidc_issuer_url            = var.oidc_issuer_url
@@ -96,6 +105,7 @@ module "monitoring" {
 # DNS module
 module "dns" {
   source = "./modules/dns"
+  count  = local.should_create_resources ? 1 : 0
 
   resource_group_name        = azurerm_resource_group.rg.name
   location                   = var.location
@@ -110,5 +120,5 @@ module "dns" {
   oidc_issuer_url            = var.oidc_issuer_url
   create_wildcard_record     = var.create_wildcard_record
   app_gateway_public_ip_id   = var.app_gateway_public_ip_id
-  aks_principal_id           = module.kubernetes.aks_principal_id
+  aks_principal_id           = local.should_create_resources ? module.kubernetes[0].aks_principal_id : ""
 } 

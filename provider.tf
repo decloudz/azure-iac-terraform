@@ -44,8 +44,16 @@ variable "client_secret" {
   default     = null
 }
 
+# Add a test mode variable
+variable "test_mode" {
+  description = "Run in test mode with dummy credentials"
+  type        = bool
+  default     = false
+}
+
 provider "random" {}
 
+# Configuration for the Terraform AzureRM Provider in test mode
 provider "azurerm" {
   features {
     key_vault {
@@ -53,9 +61,19 @@ provider "azurerm" {
       recover_soft_deleted_key_vaults = true
     }
   }
-  subscription_id            = var.subscription_id
-  client_id                  = var.client_id
-  client_secret              = var.client_secret
-  tenant_id                  = var.tenant_id
+  
+  # Only use credentials when not in test mode
+  subscription_id            = var.test_mode ? null : var.subscription_id
+  client_id                  = var.test_mode ? null : var.client_id
+  client_secret              = var.test_mode ? null : var.client_secret
+  tenant_id                  = var.test_mode ? null : var.tenant_id
   skip_provider_registration = true
+}
+
+# For test mode, specify mock validation
+provider "azurerm" {
+  features {}
+  skip_provider_registration = true
+  use_msi                    = var.test_mode
+  alias                      = "test"
 }

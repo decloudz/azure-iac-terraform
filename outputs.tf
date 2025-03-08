@@ -17,45 +17,45 @@ output "subnet_ids" {
 # Kubernetes outputs
 output "aks_id" {
   description = "ID of the AKS cluster"
-  value       = module.kubernetes.aks_id
+  value       = local.should_create_resources ? module.kubernetes[0].aks_id : null
 }
 
 output "aks_name" {
   description = "Name of the AKS cluster"
-  value       = module.kubernetes.aks_name
+  value       = local.should_create_resources ? module.kubernetes[0].aks_name : null
 }
 
 output "aks_fqdn" {
   description = "FQDN of the AKS cluster"
-  value       = module.kubernetes.aks_fqdn
+  value       = local.should_create_resources ? module.kubernetes[0].aks_fqdn : null
 }
 
 output "kube_config" {
   description = "Kubernetes configuration"
-  value       = module.kubernetes.kube_config
+  value       = local.should_create_resources ? module.kubernetes[0].kube_config : null
   sensitive   = true
 }
 
 # Database outputs
 output "postgresql_server_fqdn" {
   description = "FQDN of the PostgreSQL server"
-  value       = module.database.postgresql_server_fqdn
+  value       = local.should_create_resources ? module.database[0].postgresql_server_fqdn : null
 }
 
 output "postgresql_database_name" {
   description = "Name of the PostgreSQL database"
-  value       = module.database.postgresql_database_name
+  value       = local.should_create_resources ? module.database[0].postgresql_database_name : null
 }
 
 # Security outputs
 output "key_vault_id" {
   description = "ID of the Key Vault"
-  value       = module.security.key_vault_id
+  value       = local.should_create_resources ? module.security[0].key_vault_id : null
 }
 
 output "key_vault_uri" {
   description = "URI of the Key Vault"
-  value       = module.security.key_vault_uri
+  value       = local.should_create_resources ? module.security[0].key_vault_uri : null
 }
 
 # Monitoring outputs
@@ -73,10 +73,10 @@ output "app_insights_instrumentation_key" {
 # DNS outputs
 output "dns_zone_name" {
   description = "Name of the DNS zone"
-  value       = module.dns.dns_zone_name
+  value       = local.should_create_resources ? module.dns[0].dns_zone_name : null
 }
 
 output "name_servers" {
   description = "Name servers for the DNS zone"
-  value       = module.dns.name_servers
+  value       = local.should_create_resources ? module.dns[0].name_servers : null
 } 
