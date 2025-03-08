@@ -729,6 +729,30 @@ variable "postgresql_configurations" {
   }
 }
 
+variable "postgresql_admin_password" {
+  description = "Password for the PostgreSQL database administrator"
+  type        = string
+  sensitive   = true
+}
+
+variable "postgresql_sku" {
+  description = "SKU for PostgreSQL"
+  type        = string
+  default     = "GP_Gen5_2"
+}
+
+variable "postgresql_storage" {
+  description = "Storage in MB for PostgreSQL"
+  type        = number
+  default     = 102400  # 100 GB
+}
+
+variable "postgresql_version" {
+  description = "PostgreSQL version"
+  type        = string
+  default     = "11"
+}
+
 
 
 // ========================== Key Vault ==========================
@@ -1015,11 +1039,6 @@ variable "cost_center" {
   default     = "IT-12345"
 }
 
-variable "log_analytics_retention_days" {
-  description = "Retention in days for Log Analytics data"
-  type        = number
-  default     = 30
-}
 
 variable "ssh_public_key_path" {
   description = "Path to the SSH public key file"

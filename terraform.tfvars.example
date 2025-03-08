@@ -1,0 +1,16 @@
+# Example terraform.tfvars file
+# Copy this file to terraform.tfvars and fill in your own values
+
+# Project information
+project     = "gcse-prime-edm"
+environment = "dev"
+location    = "eastus2"
+
+# PostgreSQL database
+postgresql_sku            = "GP_Gen5_2"
+postgresql_storage        = 102400
+postgresql_version        = "11"
+postgresql_admin_password = "YourStrongPasswordHere"  # Replace with a secure password
+
+# You should NEVER commit the actual terraform.tfvars file with real values to git
+# Add terraform.tfvars to your .gitignore file 

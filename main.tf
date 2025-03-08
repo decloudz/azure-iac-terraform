@@ -56,6 +56,7 @@ module "database" {
   postgresql_sku      = var.postgresql_sku
   postgresql_storage  = var.postgresql_storage
   postgresql_version  = var.postgresql_version
+  postgresql_admin_password = var.postgresql_admin_password
 }
 
 # Security module
