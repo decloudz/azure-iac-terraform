@@ -53,7 +53,7 @@ variable "test_mode" {
 
 provider "random" {}
 
-# Configuration for the Terraform AzureRM Provider in test mode
+# Configuration for the Terraform AzureRM Provider
 provider "azurerm" {
   features {
     key_vault {
@@ -62,11 +62,22 @@ provider "azurerm" {
     }
   }
   
-  # Only use credentials when not in test mode
+  # Support both OIDC authentication from GitHub Actions and standard Service Principal auth
+  # When using GitHub Actions OIDC, use_oidc will be set to true in the workflow and Azure login 
+  # will provide the tokens needed. Otherwise, fall back to Service Principal credentials.
+  
+  # For GitHub Actions OIDC, the environment variables will be automatically set:
+  # - ARM_CLIENT_ID
+  # - ARM_TENANT_ID 
+  # - ARM_SUBSCRIPTION_ID
+  # - ARM_USE_OIDC=true
+  
+  # For local development or external CI/CD systems:
   subscription_id            = var.test_mode ? null : var.subscription_id
   client_id                  = var.test_mode ? null : var.client_id
   client_secret              = var.test_mode ? null : var.client_secret
   tenant_id                  = var.test_mode ? null : var.tenant_id
+  
   skip_provider_registration = true
 }
 
