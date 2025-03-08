@@ -4,7 +4,7 @@ trigger:
     - main
   paths:
     include:
-    - azure-iac-terraform/**
+    - clean-azure-iac-terraform/**
     exclude:
     - '**/*.md'
     - '**/*.example'
@@ -46,7 +46,7 @@ variables:
   - name: kubeloginVersion
     value: '0.0.24'
   - name: workingDirectory
-    value: '$(System.DefaultWorkingDirectory)/azure-iac-terraform'
+    value: '$(System.DefaultWorkingDirectory)/clean-azure-iac-terraform'
   - name: tfStateResourceGroup
     value: 'rg-terraform-state'
   - name: tfStateStorageAccount
@@ -55,7 +55,7 @@ variables:
     value: 'tfstate'
   - name: tfStateKey
     value: '${{ parameters.environment }}.terraform.tfstate'
-  # PostgreSQL password is stored in the variable group and should be marked as secret
+  # DNS role assignment control
   - name: createDnsRoleAssignment
     value: ${{ parameters.environment == 'prod' }}
 
@@ -131,15 +131,60 @@ stages:
         ARM_SUBSCRIPTION_ID: $(ARM_SUBSCRIPTION_ID)
 
     - task: Bash@3
-      displayName: 'Terraform Plan'
+      displayName: 'Generate Variables and Run Terraform Plan'
       inputs:
         targetType: 'inline'
         script: |
           cd $(workingDirectory)
+          
+          # Create a temporary tfvars file for this pipeline run
+          cat > pipeline-generated.tfvars << EOF
+          # Project Information
+          project                    = "$(project)"
+          environment                = "${{ parameters.environment }}"
+          location                   = "$(location)"
+          owner                      = "$(owner)"
+          cost_center                = "$(costCenter)"
+          
+          # Networking
+          vnet_address_space         = ["$(vnetAddressSpace)"]
+          subnet_prefixes            = $(subnetPrefixes)
+          subnet_names               = $(subnetNames)
+          
+          # AKS Configuration
+          kubernetes_version         = "$(kubernetesVersion)"
+          aks_vm_size                = "$(aksVmSize)"
+          aks_node_count             = $(aksNodeCount)
+          aks_max_pods               = $(aksMaxPods)
+          
+          # Security
+          key_vault_sku              = "$(keyVaultSku)"
+          cert_manager_namespace     = "$(certManagerNamespace)"
+          cert_manager_identity_name = "$(certManagerIdentityName)"
+          
+          # DNS
+          dns_zone_name              = "$(dnsZoneName)"
+          
+          # Monitoring
+          log_analytics_retention_days = $(logAnalyticsRetentionDays)
+          
+          # Module behavior
+          create_k8s_resources       = $(createK8sResources)
+          create_federated_identity  = $(createFederatedIdentity)
+          create_dns_role_assignment = $(createDnsRoleAssignment)
+          create_wildcard_record     = $(createWildcardRecord)
+          
+          # Additional variables as needed
+          tenant_id                  = "$(tenantId)"
+          EOF
+          
+          # Display the generated tfvars (excluding sensitive values)
+          echo "Generated pipeline-generated.tfvars with environment-specific values"
+          
+          # Run Terraform plan
           terraform plan \
-            -var-file="environments/${{ parameters.environment }}-variables.tfvars" \
+            -var-file="pipeline-generated.tfvars" \
             -var="test_mode=${{ parameters.testMode }}" \
-            -var="create_dns_role_assignment=$(createDnsRoleAssignment)" \
             -var="postgresql_admin_password=$(postgresqlAdminPassword)" \
             -out=$(System.DefaultWorkingDirectory)/terraform.tfplan
       env:
