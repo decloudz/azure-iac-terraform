@@ -26,6 +26,15 @@ on:
         required: false
         default: 'true'
         type: boolean
+      force_unlock:
+        description: 'Force unlock state if locked'
+        required: false
+        default: false
+        type: boolean
+      lock_id:
+        description: 'Lock ID to unlock (if force_unlock is true)'
+        required: false
+        type: string
 
 permissions:
   contents: read
@@ -46,6 +55,8 @@ env:
   ARM_USE_OIDC: true
   # Increase Terraform log level for debugging
   TF_LOG: DEBUG
+  # Increase lock timeout to 5 minutes (default is 1)
+  TF_LOCK_TIMEOUT: 300s
 
 jobs:
   # This job is just to show diagnostic information about what OIDC token is being used
@@ -130,6 +141,14 @@ jobs:
         echo "Checking if state storage account exists..."
         az storage account show --name ${TF_STATE_STORAGE_ACCOUNT} --resource-group ${TF_STATE_RESOURCE_GROUP} --query "name" -o tsv || echo "State storage account not found!"
 
+    # Force unlock state if requested
+    - name: Force Unlock Terraform State
+      if: github.event.inputs.force_unlock == 'true' && github.event.inputs.lock_id != ''
+      run: |
+        cd ${TF_WORKING_DIR}
+        echo "Attempting to force unlock state with lock ID: ${{ github.event.inputs.lock_id }}"
+        terraform force-unlock -force ${{ github.event.inputs.lock_id }}
+
     # Initialize a new or existing Terraform working directory by creating initial files, loading any remote state, downloading modules, etc.
     - name: Terraform Init
       id: init
@@ -204,12 +223,14 @@ jobs:
           terraform plan \
             -var-file="pipeline-generated.tfvars" \
             -var="postgresql_admin_password=${{ secrets.POSTGRESQL_ADMIN_PASSWORD }}" \
+            -lock-timeout=300s \
             -input=false \
             -out=tfplan
           PLAN_EXIT_CODE=$?
         else
           terraform plan \
             -var="postgresql_admin_password=${{ secrets.POSTGRESQL_ADMIN_PASSWORD }}" \
+            -lock-timeout=300s \
             -input=false \
             -out=tfplan
           PLAN_EXIT_CODE=$?
@@ -218,6 +239,14 @@ jobs:
         
         if [ $PLAN_EXIT_CODE -ne 0 ]; then
           echo "::error::Terraform plan failed with exit code $PLAN_EXIT_CODE"
+          
+          # If we got a lock error, extract and display the lock ID
+          if grep -q "Error acquiring the state lock" terraform.stdout; then
+            LOCK_ID=$(grep -A 10 "Error acquiring the state lock" terraform.stdout | grep "ID:" | awk '{print $2}')
+            echo "::warning::State is locked with ID: $LOCK_ID"
+            echo "To unlock, run the workflow with force_unlock=true and lock_id=$LOCK_ID"
+          fi
+          
           exit $PLAN_EXIT_CODE
         else
           echo "Terraform plan succeeded. Plan file created at tfplan"
@@ -273,7 +302,7 @@ jobs:
         if [ "${{ github.event_name }}" == "workflow_dispatch" ]; then
           # Download the plan for workflow_dispatch events
           echo "Applying the plan from workflow_dispatch event"
-          terraform apply -auto-approve tfplan
+          terraform apply -lock-timeout=300s -auto-approve tfplan
           APPLY_EXIT_CODE=$?
         else
           # For push events, create and apply a new plan
@@ -281,6 +310,7 @@ jobs:
           terraform apply \
             -var-file="pipeline-generated.tfvars" \
             -var="postgresql_admin_password=${{ secrets.POSTGRESQL_ADMIN_PASSWORD }}" \
+            -lock-timeout=300s \
             -auto-approve
           APPLY_EXIT_CODE=$?
         fi
@@ -288,6 +318,14 @@ jobs:
         
         if [ $APPLY_EXIT_CODE -ne 0 ]; then
           echo "::error::Terraform apply failed with exit code $APPLY_EXIT_CODE"
+          
+          # If we got a lock error, extract and display the lock ID
+          if grep -q "Error acquiring the state lock" terraform.stdout; then
+            LOCK_ID=$(grep -A 10 "Error acquiring the state lock" terraform.stdout | grep "ID:" | awk '{print $2}')
+            echo "::warning::State is locked with ID: $LOCK_ID"
+            echo "To unlock, run the workflow with force_unlock=true and lock_id=$LOCK_ID"
+          fi
+          
           exit $APPLY_EXIT_CODE
         else
           echo "Terraform apply succeeded!"

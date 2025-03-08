@@ -1,15 +1,11 @@
-name: 'Terraform CI/CD'
+name: 'Terraform CI/CD (DEPRECATED)'
+
+# ⚠️ THIS WORKFLOW IS DEPRECATED ⚠️
+# Please use the 'Terraform with OIDC' workflow instead (terraform-oidc.yml)
+# This workflow is kept for reference only and will be removed in the future
 
 on:
-  push:
-    branches:
-      - main
-    paths:
-      - '**'
-      - '.github/workflows/terraform.yml'
-  pull_request:
-    branches:
-      - main
+  # Disable automatic triggers
   workflow_dispatch:
     inputs:
       environment:
@@ -26,6 +22,12 @@ on:
         required: false
         default: 'true'
         type: boolean
+
+# Add these permissions for OIDC authentication
+permissions:
+  contents: read
+  id-token: write  # Required for OIDC authentication
+  pull-requests: write
 
 env:
   TF_WORKING_DIR: '.'
