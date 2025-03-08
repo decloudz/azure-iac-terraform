@@ -1,18 +1,36 @@
 # This workflow installs Terraform and uses OIDC authentication with Azure
 # On pull request events, this workflow will run `terraform init`, `terraform fmt`, and `terraform plan`. 
-# On push events to the "master" branch, `terraform apply` will be executed.
+# On push events to the "main" branch, `terraform apply` will be executed.
 
 name: 'Terraform with OIDC'
 
 on:
   push:
-    branches: [ "master" ]
+    branches: [ "main" ]  # Changed from "master" to "main" to match your repo
   pull_request:
+    branches:
+      - main
   workflow_dispatch:
+    inputs:
+      environment:
+        description: 'Environment to deploy to'
+        required: true
+        default: 'dev'
+        type: choice
+        options:
+          - dev
+          - staging
+          - prod
+      test_mode:
+        description: 'Run in test mode (no resource creation)'
+        required: false
+        default: 'true'
+        type: boolean
 
 permissions:
   contents: read
   id-token: write # Required for OIDC authentication with Azure
+  pull-requests: write # To comment on PRs
 
 jobs:
   terraform:
@@ -24,7 +42,7 @@ jobs:
       TF_STATE_CONTAINER: tfstate
       TERRAFORM_VERSION: 1.3.9
     runs-on: ubuntu-latest
-    environment: production
+    environment: ${{ github.event.inputs.environment || 'dev' }}
 
     # Use the Bash shell regardless whether the GitHub Actions runner is ubuntu-latest, macos-latest, or windows-latest
     defaults:
@@ -56,28 +74,107 @@ jobs:
 
     # Initialize a new or existing Terraform working directory by creating initial files, loading any remote state, downloading modules, etc.
     - name: Terraform Init
+      id: init
       run: |
         cd ${TF_WORKING_DIR}
         terraform init \
           -backend-config="resource_group_name=${TF_STATE_RESOURCE_GROUP}" \
           -backend-config="storage_account_name=${TF_STATE_STORAGE_ACCOUNT}" \
-          -backend-config="container_name=${TF_STATE_CONTAINER}"
+          -backend-config="container_name=${TF_STATE_CONTAINER}" \
+          -backend-config="key=${{ github.event.inputs.environment || 'dev' }}.terraform.tfstate"
 
-    # Checks that all Terraform configuration files adhere to a canonical format
-    - name: Terraform Format
+    # Validate Terraform configuration
+    - name: Terraform Validate
+      id: validate
       run: |
         cd ${TF_WORKING_DIR}
-        terraform fmt -check
+        terraform validate
+
+    # Create Terraform variables file from GitHub repository variables
+    - name: Create Terraform Variables File
+      if: github.event_name == 'pull_request' || github.event_name == 'workflow_dispatch'
+      run: |
+        cd ${TF_WORKING_DIR}
+        cat > pipeline-generated.tfvars << EOF
+        # Project Information
+        project                    = "${{ vars.PROJECT || 'gcse-prime-edm' }}"
+        environment                = "${{ github.event.inputs.environment || 'dev' }}"
+        location                   = "${{ vars.LOCATION || 'eastus2' }}"
+        owner                      = "${{ vars.OWNER || 'DevOps Team' }}"
+        cost_center                = "${{ vars.COST_CENTER || 'IT-123' }}"
+        
+        # Module behavior
+        create_k8s_resources       = ${{ vars.CREATE_K8S_RESOURCES || 'true' }}
+        create_federated_identity  = ${{ vars.CREATE_FEDERATED_IDENTITY || 'true' }}
+        create_dns_role_assignment = ${{ github.event.inputs.environment == 'prod' || 'false' }}
+        
+        # Additional variables
+        tenant_id                  = "${{ secrets.AZURE_TENANT_ID }}"
+        EOF
 
     # Generates an execution plan for Terraform
     - name: Terraform Plan
+      id: plan
+      if: github.event_name == 'pull_request' || github.event_name == 'workflow_dispatch'
       run: |
         cd ${TF_WORKING_DIR}
-        terraform plan -input=false -out=tfplan
+        if [ -f "pipeline-generated.tfvars" ]; then
+          terraform plan -var-file="pipeline-generated.tfvars" -input=false -out=tfplan
+        else
+          terraform plan -input=false -out=tfplan
+        fi
 
-    # On push to "master", build or change infrastructure according to Terraform configuration files
+    # Upload the Terraform plan so it can be applied later
+    - name: Upload Terraform Plan
+      if: github.event_name == 'pull_request' || github.event_name == 'workflow_dispatch'
+      uses: actions/upload-artifact@v4
+      with:
+        name: terraform-plan
+        path: ${{ env.TF_WORKING_DIR }}/tfplan
+        
+    # Add comments to PRs with plan output
+    - name: Add Plan Comment to PR
+      if: github.event_name == 'pull_request'
+      uses: actions/github-script@v6
+      env:
+        INIT: "${{ steps.init.outcome }}"
+        VALIDATE: "${{ steps.validate.outcome }}"
+        PLAN: "${{ steps.plan.outcome }}"
+      with:
+        github-token: ${{ secrets.GITHUB_TOKEN }}
+        script: |
+          const output = `#### Terraform Initialization ⚙️\`${{ steps.init.outcome }}\`
+          #### Terraform Validation 🤖\`${{ steps.validate.outcome }}\`
+          #### Terraform Plan 📖\`${{ steps.plan.outcome }}\`
+          
+          <details><summary>Show Plan</summary>
+          
+          \`\`\`terraform
+          ${process.env.PLAN}
+          \`\`\`
+          
+          </details>`;
+            
+          github.rest.issues.createComment({
+            issue_number: context.issue.number,
+            owner: context.repo.owner,
+            repo: context.repo.repo,
+            body: output
+          })
+
+    # On push to "main" or workflow_dispatch, apply Terraform changes
     - name: Terraform Apply
-      if: github.ref == 'refs/heads/master' && github.event_name == 'push'
+      if: (github.ref == 'refs/heads/main' && github.event_name == 'push') || github.event_name == 'workflow_dispatch'
       run: |
         cd ${TF_WORKING_DIR}
-        terraform apply -auto-approve tfplan 
+        if [ "${{ github.event_name }}" == "workflow_dispatch" ]; then
+          # Download the plan for workflow_dispatch events
+          terraform apply -auto-approve tfplan
+        else
+          # For push events, create and apply a new plan
+          if [ -f "pipeline-generated.tfvars" ]; then
+            terraform apply -var-file="pipeline-generated.tfvars" -auto-approve
+          else
+            terraform apply -auto-approve
+          fi
+        fi 
