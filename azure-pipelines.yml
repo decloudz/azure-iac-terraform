@@ -4,7 +4,12 @@ trigger:
     - main
   paths:
     include:
-    - gcse-prime-edm-terraform/**
+    - azure-iac-terraform/**
+    exclude:
+    - '**/*.md'
+    - '**/*.example'
+    - '**/*.old'
+    - '**/*.bak'
 
 pool:
   vmImage: 'ubuntu-latest'
@@ -18,6 +23,10 @@ parameters:
   - dev
   - staging
   - prod
+- name: testMode
+  displayName: Run in Test Mode
+  type: boolean
+  default: false
 
 variables:
   # Load environment-specific variable group
@@ -37,7 +46,7 @@ variables:
   - name: kubeloginVersion
     value: '0.0.24'
   - name: workingDirectory
-    value: '$(System.DefaultWorkingDirectory)/gcse-prime-edm-terraform'
+    value: '$(System.DefaultWorkingDirectory)/azure-iac-terraform'
   - name: tfStateResourceGroup
     value: 'rg-terraform-state'
   - name: tfStateStorageAccount
@@ -46,6 +55,9 @@ variables:
     value: 'tfstate'
   - name: tfStateKey
     value: '${{ parameters.environment }}.terraform.tfstate'
+  # PostgreSQL password is stored in the variable group and should be marked as secret
+  - name: createDnsRoleAssignment
+    value: ${{ parameters.environment == 'prod' }}
 
 stages:
 - stage: Validate
@@ -124,7 +136,12 @@ stages:
         targetType: 'inline'
         script: |
           cd $(workingDirectory)
-          terraform plan -var-file="environments/${{ parameters.environment }}-variables.tfvars" -out=$(System.DefaultWorkingDirectory)/terraform.tfplan
+          terraform plan \
+            -var-file="environments/${{ parameters.environment }}-variables.tfvars" \
+            -var="test_mode=${{ parameters.testMode }}" \
+            -var="create_dns_role_assignment=$(createDnsRoleAssignment)" \
+            -var="postgresql_admin_password=$(postgresqlAdminPassword)" \
+            -out=$(System.DefaultWorkingDirectory)/terraform.tfplan
       env:
         ARM_USE_OIDC: $(ARM_USE_OIDC)
         ARM_CLIENT_ID: $(ARM_CLIENT_ID)
