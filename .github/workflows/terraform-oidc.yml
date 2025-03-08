@@ -68,6 +68,7 @@ jobs:
       TF_VAR_subscription_id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
       TF_VAR_tenant_id: ${{ secrets.AZURE_TENANT_ID }}
       TF_VAR_test_mode: ${{ github.event.inputs.test_mode || 'false' }}
+      TF_VAR_postgresql_admin_password: ${{ secrets.POSTGRESQL_ADMIN_PASSWORD }}
     runs-on: ubuntu-latest
     # Important: This creates an environment reference that will be used in the OIDC token
     environment: ${{ github.event.inputs.environment || 'dev' }}
@@ -141,6 +142,9 @@ jobs:
         client_id                  = "${{ secrets.AZURE_CLIENT_ID }}"
         tenant_id                  = "${{ secrets.AZURE_TENANT_ID }}"
         test_mode                  = ${{ github.event.inputs.test_mode || 'false' }}
+        
+        # Database variables
+        postgresql_admin_password  = "${{ secrets.POSTGRESQL_ADMIN_PASSWORD }}"
         EOF
 
     # Generates an execution plan for Terraform
@@ -150,9 +154,16 @@ jobs:
       run: |
         cd ${TF_WORKING_DIR}
         if [ -f "pipeline-generated.tfvars" ]; then
-          terraform plan -var-file="pipeline-generated.tfvars" -input=false -out=tfplan
+          terraform plan \
+            -var-file="pipeline-generated.tfvars" \
+            -var="postgresql_admin_password=${{ secrets.POSTGRESQL_ADMIN_PASSWORD }}" \
+            -input=false \
+            -out=tfplan
         else
-          terraform plan -input=false -out=tfplan
+          terraform plan \
+            -var="postgresql_admin_password=${{ secrets.POSTGRESQL_ADMIN_PASSWORD }}" \
+            -input=false \
+            -out=tfplan
         fi
 
     # Upload the Terraform plan so it can be applied later
@@ -204,8 +215,13 @@ jobs:
         else
           # For push events, create and apply a new plan
           if [ -f "pipeline-generated.tfvars" ]; then
-            terraform apply -var-file="pipeline-generated.tfvars" -auto-approve
+            terraform apply \
+              -var-file="pipeline-generated.tfvars" \
+              -var="postgresql_admin_password=${{ secrets.POSTGRESQL_ADMIN_PASSWORD }}" \
+              -auto-approve
           else
-            terraform apply -auto-approve
+            terraform apply \
+              -var="postgresql_admin_password=${{ secrets.POSTGRESQL_ADMIN_PASSWORD }}" \
+              -auto-approve
           fi
         fi 
