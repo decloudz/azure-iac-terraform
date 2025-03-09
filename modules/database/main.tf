@@ -10,9 +10,12 @@ resource "azurerm_postgresql_flexible_server" "postgres" {
   sku_name               = var.postgresql_sku
   tags                   = var.common_tags
   
-  # High availability configuration - enable for production
-  high_availability {
-    mode = var.environment == "prod" ? "ZoneRedundant" : "Disabled"
+  # Only include high availability for production
+  dynamic "high_availability" {
+    for_each = var.environment == "prod" ? [1] : []
+    content {
+      mode = "ZoneRedundant"
+    }
   }
   
   # For production environments, enable geo-redundant backups
