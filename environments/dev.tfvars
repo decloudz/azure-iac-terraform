@@ -5,7 +5,7 @@ log_analytics_workspace_name        = "workspace1"
 
 # virtual network
 vnet_rg_name                        = "vnet1"
-vnet_location                       = "East US"
+vnet_location                       = "eastus2"
 hub_vnet_name                       = "hub"
 hub_vnet_address_space              = ["10.63.0.0/20"]
 hub_gateway_subnet_name             = "gateway"
@@ -98,7 +98,7 @@ kubernetes_cluster_exists  = true
 
 
 # Module behavior
-create_k8s_resources        = false
+create_k8s_resources        = true
 create_federated_identity   = true
 create_dns_role_assignment  = false
 create_wildcard_record      = false

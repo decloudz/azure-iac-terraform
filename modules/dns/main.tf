@@ -41,7 +41,8 @@ resource "azurerm_role_assignment" "external_dns_contributor" {
 
 # Create a federated identity credential for the external-dns identity
 resource "azurerm_federated_identity_credential" "external_dns_federated_identity" {
-  count               = var.create_federated_identity ? 1 : 0
+  count = var.create_federated_identity && var.oidc_issuer_url != "" ? 1 : 0
+
   name                = "external-dns-federated-identity"
   resource_group_name = var.resource_group_name
   audience            = ["api://AzureADTokenExchange"]

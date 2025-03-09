@@ -78,7 +78,8 @@ resource "azurerm_role_assignment" "cert_manager_dns_contributor" {
 
 # Create a federated identity credential for the cert-manager identity
 resource "azurerm_federated_identity_credential" "cert_manager_federated_identity" {
-  count               = var.create_federated_identity ? 1 : 0
+  count = var.create_federated_identity && var.oidc_issuer_url != "" ? 1 : 0
+
   name                = "cert-manager-federated-identity"
   resource_group_name = var.resource_group_name
   audience            = ["api://AzureADTokenExchange"]

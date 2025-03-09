@@ -1,6 +1,21 @@
 locals {
   # Skip actual creation of Azure resources when in test mode
   should_create_resources = !var.test_mode
+  
+  # Define the resource group name to be used consistently
+  resource_group_name = "rg-${var.project}-${var.environment}"
+  
+  # Get OIDC issuer URL if AKS exists
+  oidc_issuer_url = local.should_create_resources && length(module.kubernetes) > 0 ? module.kubernetes[0].oidc_issuer_url : ""
+  
+  # Common tags
+  common_tags = {
+    Environment = var.environment
+    Project     = var.project
+    Owner       = var.owner
+    CostCenter  = var.cost_center
+    ManagedBy   = "Terraform"
+  }
 }
 
 # Create resource group
@@ -92,7 +107,7 @@ module "security" {
   create_k8s_resources       = var.create_k8s_resources && local.should_create_resources
   create_federated_identity  = var.create_federated_identity && local.should_create_resources
   create_dns_role_assignment = var.create_dns_role_assignment
-  oidc_issuer_url            = local.should_create_resources ? module.kubernetes[0].oidc_issuer_url : ""
+  oidc_issuer_url            = local.oidc_issuer_url
   
   # Add explicit dependency on the Kubernetes module
   depends_on = [module.kubernetes]
@@ -125,7 +140,7 @@ module "dns" {
   external_dns_identity_name = var.external_dns_identity_name
   create_k8s_resources       = var.create_k8s_resources && local.should_create_resources
   create_federated_identity  = var.create_federated_identity && local.should_create_resources
-  oidc_issuer_url            = local.should_create_resources ? module.kubernetes[0].oidc_issuer_url : ""
+  oidc_issuer_url            = local.oidc_issuer_url
   create_wildcard_record     = var.create_wildcard_record
   app_gateway_public_ip_id   = var.app_gateway_public_ip_id
   aks_principal_id           = local.should_create_resources ? module.kubernetes[0].aks_principal_id : ""
