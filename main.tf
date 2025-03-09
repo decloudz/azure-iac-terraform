@@ -1,7 +1,3 @@
-# Main Terraform configuration file
-# This file orchestrates all modules for the GCSE Prime EDM infrastructure
-
-# Add at the top of the file
 locals {
   # Skip actual creation of Azure resources when in test mode
   should_create_resources = !var.test_mode
@@ -49,6 +45,14 @@ module "kubernetes" {
   ssh_public_key             = file(var.ssh_public_key_path)
   acr_id                     = var.acr_id
   admin_group_object_ids     = var.admin_group_object_ids
+  
+  # Network profile configuration
+  network_plugin     = var.network_plugin
+  network_policy     = var.network_policy
+  service_cidr       = var.service_cidr
+  dns_service_ip     = var.dns_service_ip
+  docker_bridge_cidr = var.docker_bridge_cidr
+  load_balancer_sku  = var.load_balancer_sku
 }
 
 # Database module
@@ -73,6 +77,10 @@ module "database" {
 module "security" {
   source = "./modules/security"
   count  = local.should_create_resources ? 1 : 0
+  
+  providers = {
+    kubernetes = kubernetes.aks
+  }
 
   resource_group_name        = azurerm_resource_group.rg.name
   location                   = var.location
@@ -85,10 +93,13 @@ module "security" {
   cert_manager_namespace     = var.cert_manager_namespace
   cert_manager_identity_name = var.cert_manager_identity_name
   dns_zone_id                = local.should_create_resources ? module.dns[0].dns_zone_id : ""
-  create_k8s_resources       = var.create_k8s_resources
-  create_federated_identity  = var.create_federated_identity
+  create_k8s_resources       = var.create_k8s_resources && local.should_create_resources
+  create_federated_identity  = var.create_federated_identity && local.should_create_resources
   create_dns_role_assignment = var.create_dns_role_assignment
-  oidc_issuer_url            = var.oidc_issuer_url
+  oidc_issuer_url            = local.should_create_resources ? module.kubernetes[0].oidc_issuer_url : ""
+  
+  # Add explicit dependency on the Kubernetes module
+  depends_on = [module.kubernetes]
 }
 
 # Monitoring module
@@ -107,6 +118,10 @@ module "monitoring" {
 module "dns" {
   source = "./modules/dns"
   count  = local.should_create_resources ? 1 : 0
+  
+  providers = {
+    kubernetes = kubernetes.aks
+  }
 
   resource_group_name        = azurerm_resource_group.rg.name
   location                   = var.location
@@ -116,10 +131,13 @@ module "dns" {
   dns_zone_name              = var.dns_zone_name
   external_dns_namespace     = var.external_dns_namespace
   external_dns_identity_name = var.external_dns_identity_name
-  create_k8s_resources       = var.create_k8s_resources
-  create_federated_identity  = var.create_federated_identity
-  oidc_issuer_url            = var.oidc_issuer_url
+  create_k8s_resources       = var.create_k8s_resources && local.should_create_resources
+  create_federated_identity  = var.create_federated_identity && local.should_create_resources
+  oidc_issuer_url            = local.should_create_resources ? module.kubernetes[0].oidc_issuer_url : ""
   create_wildcard_record     = var.create_wildcard_record
   app_gateway_public_ip_id   = var.app_gateway_public_ip_id
   aks_principal_id           = local.should_create_resources ? module.kubernetes[0].aks_principal_id : ""
+  
+  # Add explicit dependency on the Kubernetes module
+  depends_on = [module.kubernetes]
 } 

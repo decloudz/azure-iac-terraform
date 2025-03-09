@@ -84,4 +84,40 @@ variable "admin_group_object_ids" {
   description = "Object IDs of Azure AD groups with admin access to the cluster"
   type        = list(string)
   default     = []
+}
+
+variable "network_plugin" {
+  description = "Network plugin to use for Kubernetes networking (azure or kubenet)"
+  type        = string
+  default     = "azure"
+}
+
+variable "network_policy" {
+  description = "Network policy to use for Kubernetes networking (azure or calico)"
+  type        = string
+  default     = "calico"
+}
+
+variable "service_cidr" {
+  description = "CIDR notation IP range from which Kubernetes service IPs are assigned"
+  type        = string
+  default     = "172.16.0.0/16"
+}
+
+variable "dns_service_ip" {
+  description = "IP address within the Kubernetes service address range that will be used by kube-dns"
+  type        = string
+  default     = "172.16.0.10"
+}
+
+variable "docker_bridge_cidr" {
+  description = "CIDR notation IP for Docker bridge network"
+  type        = string
+  default     = "172.17.0.1/16"
+}
+
+variable "load_balancer_sku" {
+  description = "SKU of the load balancer to use with AKS (basic or standard)"
+  type        = string
+  default     = "standard"
 } 

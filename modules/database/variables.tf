@@ -30,26 +30,26 @@ variable "vnet_id" {
 }
 
 variable "subnet_id" {
-  description = "ID of the subnet for database"
+  description = "ID of the subnet for database - must be delegated to Microsoft.DBforPostgreSQL/flexibleServers"
   type        = string
 }
 
 variable "postgresql_sku" {
-  description = "SKU for PostgreSQL"
+  description = "SKU for PostgreSQL Flexible Server (e.g., B_Standard_B1ms, GP_Standard_D2s_v3)"
   type        = string
-  default     = "GP_Gen5_2"
+  default     = "B_Standard_B1ms"
 }
 
 variable "postgresql_storage" {
   description = "Storage in MB for PostgreSQL"
   type        = number
-  default     = 102400
+  default     = 32768 # 32GB
 }
 
 variable "postgresql_version" {
-  description = "PostgreSQL version"
+  description = "PostgreSQL version (e.g., 12, 13, 14)"
   type        = string
-  default     = "11"
+  default     = "13"
 }
 
 variable "postgresql_admin_username" {

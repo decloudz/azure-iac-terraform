@@ -37,6 +37,18 @@ resource "azurerm_subnet" "subnet" {
       }
     }
   }
+  
+  # PostgreSQL Flexible Server delegation for DB subnet
+  dynamic "delegation" {
+    for_each = var.subnet_names[count.index] == "db" ? [1] : []
+    content {
+      name = "fs-delegation"
+      service_delegation {
+        name    = "Microsoft.DBforPostgreSQL/flexibleServers"
+        actions = ["Microsoft.Network/virtualNetworks/subnets/join/action"]
+      }
+    }
+  }
 }
 
 # Network Security Group for AKS

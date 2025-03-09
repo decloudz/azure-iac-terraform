@@ -14,7 +14,7 @@ variable "environment" {
 variable "location" {
   description = "Azure region where resources will be created"
   type        = string
-  default     = "eastus2"
+  default     = "East US"
 }
 
 variable "owner" {
@@ -28,6 +28,34 @@ variable "cost_center" {
   type        = string
   default     = "IT-12345"
 }
+
+# Add variables for authentication
+variable "subscription_id" {
+  description = "Azure Subscription ID"
+  type        = string
+  default     = null
+}
+
+variable "client_id" {
+  description = "Azure Client ID"
+  type        = string
+  default     = null
+}
+
+variable "client_secret" {
+  description = "Azure Client Secret"
+  type        = string
+  sensitive   = true
+  default     = null
+}
+
+# Add a test mode variable
+variable "test_mode" {
+  description = "Run in test mode with dummy credentials"
+  type        = bool
+  default     = false
+}
+
 
 # Azure Authentication
 variable "tenant_id" {
@@ -53,6 +81,43 @@ variable "subnet_names" {
   description = "Names of the subnets"
   type        = list(string)
   default     = ["aks", "db", "appgw", "bastion"]
+}
+
+# AKS Network Configuration
+variable "network_plugin" {
+  description = "Network plugin to use for Kubernetes networking (azure or kubenet)"
+  type        = string
+  default     = "azure"
+}
+
+variable "network_policy" {
+  description = "Network policy to use for Kubernetes networking (azure or calico)"
+  type        = string
+  default     = "calico"
+}
+
+variable "service_cidr" {
+  description = "CIDR notation IP range from which Kubernetes service IPs are assigned"
+  type        = string
+  default     = "172.16.0.0/16"
+}
+
+variable "dns_service_ip" {
+  description = "IP address within the Kubernetes service address range that will be used by kube-dns"
+  type        = string
+  default     = "172.16.0.10"
+}
+
+variable "docker_bridge_cidr" {
+  description = "CIDR notation IP for Docker bridge network"
+  type        = string
+  default     = "172.17.0.1/16"
+}
+
+variable "load_balancer_sku" {
+  description = "SKU of the load balancer to use with AKS (basic or standard)"
+  type        = string
+  default     = "standard"
 }
 
 # AKS
@@ -137,27 +202,27 @@ variable "log_analytics_retention_days" {
   default     = 30
 }
 
-# PostgreSQL
+# PostgreSQL Flexible Server
 variable "postgresql_sku" {
-  description = "SKU for PostgreSQL"
+  description = "SKU for PostgreSQL Flexible Server (e.g., B_Standard_B1ms, GP_Standard_D2s_v3)"
   type        = string
-  default     = "GP_Gen5_2"
+  default     = "B_Standard_B1ms"
 }
 
 variable "postgresql_storage" {
   description = "Storage in MB for PostgreSQL"
   type        = number
-  default     = 102400  # 100 GB
+  default     = 32768 # 32GB
 }
 
 variable "postgresql_version" {
-  description = "PostgreSQL version"
+  description = "PostgreSQL version (e.g., 12, 13, 14)"
   type        = string
-  default     = "11"
+  default     = "13"
 }
 
 variable "postgresql_admin_password" {
-  description = "Password for the PostgreSQL database administrator"
+  description = "PostgreSQL admin password"
   type        = string
   sensitive   = true
 }
@@ -211,4 +276,4 @@ variable "create_dns_role_assignment" {
   description = "Whether to create the DNS Zone Contributor role assignment"
   type        = bool
   default     = false
-} 
+}

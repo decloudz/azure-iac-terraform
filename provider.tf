@@ -24,31 +24,9 @@ terraform {
   required_version = ">= 1.3.9"
 }
 
-# Add variables for authentication
-variable "subscription_id" {
-  description = "Azure Subscription ID"
-  type        = string
-  default     = null
-}
-
-variable "client_id" {
-  description = "Azure Client ID"
-  type        = string
-  default     = null
-}
-
-variable "client_secret" {
-  description = "Azure Client Secret"
-  type        = string
-  sensitive   = true
-  default     = null
-}
-
-# Add a test mode variable
-variable "test_mode" {
-  description = "Run in test mode with dummy credentials"
-  type        = bool
-  default     = false
+# Define local values for provider configuration
+locals {
+  resource_group_name = "rg-${var.project}-${var.environment}"
 }
 
 provider "random" {}
@@ -59,6 +37,9 @@ provider "azurerm" {
     key_vault {
       purge_soft_delete_on_destroy = true
       recover_soft_deleted_key_vaults = true
+    }
+    resource_group {
+      prevent_deletion_if_contains_resources = false
     }
   }
   
@@ -83,8 +64,72 @@ provider "azurerm" {
 
 # For test mode, specify mock validation
 provider "azurerm" {
-  features {}
+  features {
+    resource_group {
+      prevent_deletion_if_contains_resources = false
+    }
+  }
   skip_provider_registration = true
   use_msi                    = var.test_mode
   alias                      = "test"
+}
+
+# Kubernetes provider configuration with improved dependency handling
+provider "kubernetes" {
+  alias = "aks"
+  
+  # When in test mode or when not creating the cluster, we'll use an empty provider configuration
+  # which won't try to connect to any cluster
+  host                   = null
+  client_certificate     = null
+  client_key             = null
+  cluster_ca_certificate = null
+
+  # The exec block is only active when we create Kubernetes resources, and
+  # the AKS cluster is expected to exist
+  dynamic "exec" {
+    for_each = var.test_mode || !var.create_k8s_resources ? [] : [1]
+    
+    content {
+      api_version = "client.authentication.k8s.io/v1beta1"
+      command     = "az"
+      args = [
+        "aks", "get-credentials",
+        "--resource-group", local.resource_group_name,
+        "--name", "aks-${var.project}-${var.environment}",
+        "--overwrite-existing"
+      ]
+    }
+  }
+}
+
+# Helm provider configuration with improved dependency handling
+provider "helm" {
+  alias = "aks"
+  
+  kubernetes {
+    # When in test mode or when not creating the cluster, we'll use an empty provider configuration
+    # which won't try to connect to any cluster
+    host                   = null
+    client_certificate     = null
+    client_key             = null
+    cluster_ca_certificate = null
+
+    # The exec block is only active when we create Kubernetes resources, and
+    # the AKS cluster is expected to exist
+    dynamic "exec" {
+      for_each = var.test_mode || !var.create_k8s_resources ? [] : [1]
+      
+      content {
+        api_version = "client.authentication.k8s.io/v1beta1"
+        command     = "az"
+        args = [
+          "aks", "get-credentials",
+          "--resource-group", local.resource_group_name,
+          "--name", "aks-${var.project}-${var.environment}",
+          "--overwrite-existing"
+        ]
+      }
+    }
+  }
 }

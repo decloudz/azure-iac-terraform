@@ -27,9 +27,12 @@ resource "azurerm_kubernetes_cluster" "aks" {
   }
 
   network_profile {
-    network_plugin    = "azure"
-    load_balancer_sku = "standard"
-    network_policy    = "calico"
+    network_plugin    = var.network_plugin
+    load_balancer_sku = var.load_balancer_sku
+    network_policy    = var.network_policy
+    service_cidr       = var.service_cidr
+    dns_service_ip     = var.dns_service_ip
+    docker_bridge_cidr = var.docker_bridge_cidr
   }
 
   role_based_access_control_enabled = true
