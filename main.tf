@@ -78,10 +78,6 @@ module "security" {
   source = "./modules/security"
   count  = local.should_create_resources ? 1 : 0
   
-  providers = {
-    kubernetes = kubernetes.aks
-  }
-
   resource_group_name        = azurerm_resource_group.rg.name
   location                   = var.location
   environment                = var.environment
@@ -119,10 +115,6 @@ module "dns" {
   source = "./modules/dns"
   count  = local.should_create_resources ? 1 : 0
   
-  providers = {
-    kubernetes = kubernetes.aks
-  }
-
   resource_group_name        = azurerm_resource_group.rg.name
   location                   = var.location
   environment                = var.environment

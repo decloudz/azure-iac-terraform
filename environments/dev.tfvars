@@ -98,7 +98,7 @@ kubernetes_cluster_exists  = true
 
 
 # Module behavior
-create_k8s_resources        = true
+create_k8s_resources        = false
 create_federated_identity   = true
 create_dns_role_assignment  = false
 create_wildcard_record      = false

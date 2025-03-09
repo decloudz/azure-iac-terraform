@@ -70,10 +70,8 @@ provider "azurerm" {
   alias                      = "test"
 }
 
-# Kubernetes provider configuration with improved dependency handling
+# Kubernetes provider configuration 
 provider "kubernetes" {
-  alias = "aks"
-  
   # When in test mode or when not creating the cluster, we'll use an empty provider configuration
   # which won't try to connect to any cluster
   host                   = null
@@ -99,10 +97,8 @@ provider "kubernetes" {
   }
 }
 
-# Helm provider configuration with improved dependency handling
+# Helm provider configuration
 provider "helm" {
-  alias = "aks"
-  
   kubernetes {
     # When in test mode or when not creating the cluster, we'll use an empty provider configuration
     # which won't try to connect to any cluster

@@ -11,7 +11,6 @@ resource "azurerm_dns_zone" "dns_zone" {
 # External DNS Namespace
 resource "kubernetes_namespace" "external_dns" {
   count = var.create_k8s_resources ? 1 : 0
-  provider = kubernetes.aks
 
   metadata {
     name = var.external_dns_namespace

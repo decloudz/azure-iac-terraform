@@ -47,8 +47,7 @@ resource "azurerm_key_vault_access_policy" "aks_access" {
 # Cert Manager Namespace
 resource "kubernetes_namespace" "cert_manager" {
   count = var.create_k8s_resources ? 1 : 0
-  provider = kubernetes.aks
-
+  
   metadata {
     name = var.cert_manager_namespace
   }
