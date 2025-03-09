@@ -1,22 +1,3 @@
-locals {
-  # Skip actual creation of Azure resources when in test mode
-  should_create_resources = !var.test_mode
-  
-  # Define the resource group name to be used consistently
-  resource_group_name = "rg-${var.project}-${var.environment}"
-  
-  # Get OIDC issuer URL if AKS exists
-  oidc_issuer_url = local.should_create_resources && length(module.kubernetes) > 0 ? module.kubernetes[0].oidc_issuer_url : ""
-  
-  # Common tags
-  common_tags = {
-    Environment = var.environment
-    Project     = var.project
-    Owner       = var.owner
-    CostCenter  = var.cost_center
-    ManagedBy   = "Terraform"
-  }
-}
 
 # Create resource group
 resource "azurerm_resource_group" "rg" {

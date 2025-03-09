@@ -1,7 +1,13 @@
 locals {
+  # Skip actual creation of Azure resources when in test mode
+  should_create_resources = !var.test_mode
+
   # Resource name components
   resource_prefix     = "${var.project}-${var.environment}"
   resource_group_name = "rg-${local.resource_prefix}"
+
+  # Get OIDC issuer URL if AKS exists
+  oidc_issuer_url = local.should_create_resources && length(module.kubernetes) > 0 ? module.kubernetes[0].oidc_issuer_url : ""
   
   # Common tags for all resources
   common_tags = {
