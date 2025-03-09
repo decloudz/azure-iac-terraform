@@ -24,10 +24,6 @@ terraform {
   required_version = ">= 1.3.9"
 }
 
-# Define local values for provider configuration
-locals {
-  resource_group_name = "rg-${var.project}-${var.environment}"
-}
 
 provider "random" {}
 
